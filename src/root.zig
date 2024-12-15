@@ -39,12 +39,12 @@ pub const GifDLA = struct {
     ///          - false means moving particle
     /// (x, y): coordinates of the pixel
     /// height and width: dimensions of the grid
-    fn getPixelColor(pixel: ?bool, x: usize, y: usize, height: usize, width: usize) u8 {
+    fn getPixelColor(pixel: u8, x: usize, y: usize, height: usize, width: usize) u8 {
         const max_distance = @min(width, height) / 2;
         const max_distance_float: f64 = @floatFromInt(max_distance);
         const threshold = max_distance / num_colors;
 
-        if (pixel == true) {
+        if (pixel == 1) {
             // Stuck particle: color depends on distance from center
             const distance: usize = @intFromFloat(std.math.hypot(
                 @as(f64, @floatFromInt(x)) - max_distance_float,
@@ -52,7 +52,7 @@ pub const GifDLA = struct {
             ));
             const color_index: usize = @min(num_colors - 1, distance / threshold);
             return @truncate(color_index);
-        } else if (pixel == false) {
+        } else if (pixel == 2) {
             // Moving particle: use the next-to-last color
             return num_colors + 1;
         } else {
@@ -145,7 +145,7 @@ pub const DLA = struct {
     allocator: std.mem.Allocator,
     width: usize,
     height: usize,
-    grid: []?bool,
+    grid: []u8,
     num_particles: usize,
     remaining_particles: usize,
     particles: std.ArrayList(Particle),
@@ -157,13 +157,13 @@ pub const DLA = struct {
     /// and randomly distributing the remaining particles.
     pub fn initialize(alloc: std.mem.Allocator, width: usize, height: usize, num_particles: usize) !Self {
         const max = width * height;
-        var grid = try alloc.alloc(?bool, max);
-        @memset(grid, null);
+        var grid = try alloc.alloc(u8, max);
+        @memset(grid, 0);
 
         // Place the initial stuck particle at the center
         const mid_x = width / 2;
         const mid_y = height / 2;
-        grid[mid_y * width + mid_x] = true;
+        grid[mid_y * width + mid_x] = 1;
 
         // Place the remaining particles randomly
         var particles = try std.ArrayList(Particle).initCapacity(alloc, num_particles);
@@ -177,11 +177,11 @@ pub const DLA = struct {
 
         while (remaining > 0) {
             const index = rand.intRangeLessThan(usize, 0, max);
-            if (grid[index] != null) {
+            if (grid[index] != 0) {
                 continue;
             }
 
-            grid[index] = false;
+            grid[index] = 2;
             const x = index % width;
             const y = index / width;
             particles.appendAssumeCapacity(Particle{ .x = x, .y = y });
@@ -243,13 +243,13 @@ pub const DLA = struct {
 
                     const new_index: usize = @intCast(new_y * @as(isize, @intCast(self.width)) + new_x);
 
-                    if (self.grid[new_index] != null) {
+                    if (self.grid[new_index] != 0) {
                         continue; // can't move here, it's occupied or stuck
                     }
 
                     // Move particle
-                    self.grid[index] = null;
-                    self.grid[new_index] = false;
+                    self.grid[index] = 0;
+                    self.grid[new_index] = 2;
 
                     particle.x = @intCast(new_x);
                     particle.y = @intCast(new_y);
@@ -278,16 +278,18 @@ pub const DLA = struct {
                     const new_y = @as(isize, @intCast(y)) + y_offset;
 
                     // Check boundary conditions
-                    if (new_x >= self.width or new_x < 0 or new_y >= self.height or new_y < 0) {
+                    const between_boundaries = new_x >= self.width or new_x < 0 or new_y >= self.height or new_y < 0;
+                    if (between_boundaries) {
                         continue;
                     }
 
                     const new_index: usize = @intCast(new_y * @as(isize, @intCast(self.width)) + new_x);
 
                     // If adjacent to a stuck particle, this one becomes stuck
-                    if (self.grid[new_index] == true) {
+                    if (self.grid[new_index] == 1) {
+                        // @branchHint(.unlikely);
                         self.remaining_particles -= 1;
-                        self.grid[index] = true;
+                        self.grid[index] = 1;
                         stuck_found = true;
                         _ = self.particles.swapRemove(particle_index);
                         break :neighbors;
