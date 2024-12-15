@@ -12,8 +12,8 @@ const num_colors = 10;
 pub const palette = blk: {
     var color_array: [num_colors * 3]u8 = @splat(0);
     var index: usize = color_array.len;
-    const increment = 190 / (num_colors - 1);
-    var value: u8 = 20;
+    const increment = 180 / (num_colors - 1);
+    var value: u8 = 70;
 
     while (index > 0) : (index -= 3) {
         color_array[index - 1] = value;
@@ -285,14 +285,12 @@ pub const DLA = struct {
                     const new_index: usize = @intCast(new_y * @as(isize, @intCast(self.width)) + new_x);
 
                     // If adjacent to a stuck particle, this one becomes stuck
-                    if (self.grid[new_index]) |cell| {
-                        if (cell) {
-                            self.remaining_particles -= 1;
-                            self.grid[index] = true;
-                            stuck_found = true;
-                            _ = self.particles.swapRemove(particle_index);
-                            break :neighbors;
-                        }
+                    if (self.grid[new_index] == true) {
+                        self.remaining_particles -= 1;
+                        self.grid[index] = true;
+                        stuck_found = true;
+                        _ = self.particles.swapRemove(particle_index);
+                        break :neighbors;
                     }
                 }
             }
