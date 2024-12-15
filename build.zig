@@ -24,6 +24,7 @@ pub fn build(b: *std.Build) !void {
     });
 
     exe.use_llvm = true;
+    exe.want_lto = true;
 
     const cgif_dep = b.dependency("cgif", .{});
 

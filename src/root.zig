@@ -149,6 +149,7 @@ pub const DLA = struct {
     num_particles: usize,
     remaining_particles: usize,
     particles: std.ArrayList(Particle),
+    random: std.Random,
 
     const Self = @This();
 
@@ -168,8 +169,14 @@ pub const DLA = struct {
         var particles = try std.ArrayList(Particle).initCapacity(alloc, num_particles);
         var remaining = num_particles;
 
+        var seed: u64 = undefined;
+        try std.posix.getrandom(std.mem.asBytes(&seed));
+
+        var prng = std.Random.DefaultPrng.init(seed);
+        const rand = prng.random();
+
         while (remaining > 0) {
-            const index = std.crypto.random.intRangeLessThan(usize, 0, max);
+            const index = rand.intRangeLessThan(usize, 0, max);
             if (grid[index] != null) {
                 continue;
             }
@@ -189,6 +196,7 @@ pub const DLA = struct {
             .num_particles = num_particles,
             .remaining_particles = num_particles,
             .particles = particles,
+            .random = rand,
         };
 
         return self;
@@ -214,8 +222,8 @@ pub const DLA = struct {
 
                 // Try up to 15 random moves for each particle
                 while (!placed and attempts < 15) : (attempts += 1) {
-                    const x_offset = std.crypto.random.intRangeLessThan(isize, -1, 2);
-                    const y_offset = std.crypto.random.intRangeLessThan(isize, -1, 2);
+                    const x_offset = self.random.intRangeLessThan(isize, -1, 2);
+                    const y_offset = self.random.intRangeLessThan(isize, -1, 2);
 
                     var new_x = @as(isize, @intCast(x)) + x_offset;
                     var new_y = @as(isize, @intCast(y)) + y_offset;
